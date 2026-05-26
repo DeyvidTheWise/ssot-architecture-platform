@@ -1,42 +1,66 @@
-// app/(auth)/login/page.tsx
 "use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/stores/auth-store";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
-  password: z.string().min(8, "At least 8 characters"),
+  password: z.string().min(8, "At least 8 characters")
 });
+
 type FormValues = z.infer<typeof schema>;
 
 export default function LoginPage() {
   const router = useRouter();
+  const login = useAuthStore((state) => state.login);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
+
+  const defaultEmail = useMemo(() => "", []);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors }
+  } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "deyvid@minotaurus.dev", password: "minotaurus" },
+    defaultValues: { email: defaultEmail, password: "" }
   });
 
-  const onSubmit = async () => {
-    setLoading(true);
-    // TODO: POST /api/auth/login via /lib/api/auth (not yet wired)
-    setTimeout(() => { setLoading(false); router.push("/dashboard"); }, 400);
+  const onSubmit = async (values: FormValues): Promise<void> => {
+    try {
+      setLoading(true);
+      setErrorMessage(null);
+      await login(values.email, values.password);
+      router.replace("/dashboard");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to login");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="w-full max-w-[380px] bg-panel border border-border rounded-xl p-7 shadow-md">
       <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-7 h-7 rounded-md grid place-items-center text-white font-bold font-mono text-[13px]" style={{
-          background: "linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 40%, #000))",
-        }}>M</div>
-        <div className="font-semibold">Minotaurus <span className="text-fg-muted font-normal">Â· SSOT</span></div>
+        <div
+          className="w-7 h-7 rounded-md grid place-items-center text-white font-bold font-mono text-[13px]"
+          style={{
+            background: "linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 40%, #000))"
+          }}
+        >
+          M
+        </div>
+        <div className="font-semibold">
+          Minotaurus <span className="text-fg-muted font-normal">· SSOT</span>
+        </div>
       </div>
       <h1 className="text-xl font-semibold tracking-tight m-0 mb-1">Welcome back</h1>
       <p className="text-fg-muted text-[13px] m-0 mb-5">Sign in to your workspace.</p>
@@ -45,17 +69,29 @@ export default function LoginPage() {
         <Field label="Email" error={errors.email?.message}>
           <div className="relative">
             <Mail size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle" />
-            <input {...register("email")} className="w-full bg-panel border border-border rounded-sm py-2 pl-8 pr-3 text-[13.5px] outline-none focus:border-accent" placeholder="you@company.com" />
+            <input
+              {...register("email")}
+              className="w-full bg-panel border border-border rounded-sm py-2 pl-8 pr-3 text-[13.5px] outline-none focus:border-accent"
+              placeholder="you@company.com"
+            />
           </div>
         </Field>
         <Field label="Password" error={errors.password?.message}>
           <div className="relative">
             <Lock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle" />
-            <input {...register("password")} type="password" className="w-full bg-panel border border-border rounded-sm py-2 pl-8 pr-3 text-[13.5px] outline-none focus:border-accent" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" />
+            <input
+              {...register("password")}
+              type="password"
+              className="w-full bg-panel border border-border rounded-sm py-2 pl-8 pr-3 text-[13.5px] outline-none focus:border-accent"
+              placeholder="••••••••"
+            />
           </div>
         </Field>
+
+        {errorMessage && <div className="text-[12px] text-danger">{errorMessage}</div>}
+
         <Button type="submit" variant="primary" className="h-9 mt-1" disabled={loading}>
-          {loading ? "Signing inâ€¦" : "Sign in"} <ArrowRight size={14} />
+          {loading ? "Signing in..." : "Sign in"} <ArrowRight size={14} />
         </Button>
       </form>
       <div className="text-[12.5px] text-fg-muted text-center mt-3">
