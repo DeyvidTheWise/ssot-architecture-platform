@@ -1,344 +1,244 @@
-# FRONTEND_UI_IMPLEMENTATION_CONTRACT.md
+# FRONTEND UI IMPLEMENTATION CONTRACT
 
-## Purpose
+## 1. Purpose
 
-This document defines exactly what the frontend must implement for the **SSOT Architecture Platform**.
+This document defines exactly what the frontend must show, how the user workflow should behave, which pages must exist, which API endpoints each page consumes, and what payloads are expected.
 
-The frontend is a Next.js application that consumes a separate Express.js backend through REST APIs and WebSocket events.  
-The frontend must not contain database logic or backend business rules. It displays, edits, validates, visualizes, and exports software engineering artifacts through the backend API.
+This file is intended for Claude, Codex, or any AI coding agent implementing the frontend.
+
+The frontend must act as the visual and interaction layer of the SSOT Architecture Platform.
 
 ---
 
-## 1. Frontend Technology Requirements
+## 2. Global Frontend Rules
 
-Use the following stack:
+### 2.1 Technology Expectations
+
+Use:
 
 ```text
 Next.js App Router
 React
 TypeScript
 Tailwind CSS
-shadcn/ui
 React Flow
-Monaco Editor or similar code editor
-Markdown editor with live preview
+Markdown editor with preview
 Mermaid rendering
-Zustand or React Query for client state
-REST API client wrapper
+Central API client
 WebSocket client
 ```
 
-Recommended UI style:
+Recommended frontend libraries:
 
 ```text
-Modern SaaS dashboard
-Dark/light mode support
-Left sidebar navigation
-Top project/action bar
-Card-based layouts
-Graph-first visual experience
-Clean engineering aesthetic
+react-hook-form
+zod
+zustand
+react-flow
+lucide-react
+sonner or toast notification system
 ```
 
----
+### 2.2 Architecture Rule
 
-## 2. Global Frontend Rules
+The frontend must never connect directly to PostgreSQL.
+
+All data must flow through the backend REST API and WebSocket server.
 
 ```text
-1. Frontend must never access the database directly.
-2. All data must be loaded through REST API endpoints.
-3. Reusable API client functions must be placed in /src/lib/api.
-4. Shared TypeScript types must be placed in /src/types.
-5. Forms must validate inputs before sending requests.
-6. Backend validation errors must be displayed clearly.
-7. Loading, empty, error, and success states must exist for all major pages.
-8. Components must be reusable and not tied to one page unless necessary.
-9. Business logic must stay out of presentational components.
-10. WebSocket updates should refresh affected views without full page reloads.
+Frontend -> REST API / WebSocket -> Express Backend -> PostgreSQL
 ```
 
----
+### 2.3 UI Goal
 
-## 3. Suggested Frontend Folder Structure
+The frontend should make the platform feel like an engineering workspace, not a simple admin panel.
+
+The user must always understand:
 
 ```text
-/frontend
-  /src
-    /app
-      /(auth)
-        /login
-        /register
-      /(dashboard)
-        /dashboard
-        /projects
-        /projects/[projectId]
-        /projects/[projectId]/artifacts
-        /projects/[projectId]/graph
-        /projects/[projectId]/docs/[artifactId]
-        /projects/[projectId]/api
-        /projects/[projectId]/diagrams
-        /projects/[projectId]/database
-        /projects/[projectId]/validation
-        /projects/[projectId]/versions
-        /projects/[projectId]/export
-    /components
-      /layout
-      /projects
-      /artifacts
-      /documents
-      /graph
-      /api
-      /diagrams
-      /database
-      /validation
-      /versions
-      /export
-      /shared
-    /lib
-      /api
-      /auth
-      /websocket
-      /utils
-    /types
-    /hooks
-    /store
+What project am I in?
+What artifact am I viewing?
+How is it connected?
+What is incomplete or inconsistent?
+What changed recently?
+What can be exported as SSOT?
 ```
 
 ---
 
-## 4. Core Data Types
+## 3. Global Layout
 
-### User
+### 3.1 App Shell
 
-```ts
-type User = {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: "admin" | "architect" | "developer" | "viewer";
-  createdAt: string;
-  updatedAt: string;
-};
-```
+All authenticated pages must use the same shell.
 
-### Project
-
-```ts
-type Project = {
-  id: string;
-  name: string;
-  description?: string;
-  ownerId: string;
-  createdAt: string;
-  updatedAt: string;
-};
-```
-
-### Artifact
-
-```ts
-type Artifact = {
-  id: string;
-  projectId: string;
-  title: string;
-  type:
-    | "documentation"
-    | "api"
-    | "endpoint"
-    | "service"
-    | "database"
-    | "diagram"
-    | "requirement"
-    | "security_policy";
-  description?: string;
-  status: "draft" | "active" | "deprecated";
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-};
-```
-
-### ArtifactRelation
-
-```ts
-type ArtifactRelation = {
-  id: string;
-  sourceArtifactId: string;
-  targetArtifactId: string;
-  relationType:
-    | "depends_on"
-    | "documents"
-    | "implements"
-    | "uses"
-    | "exposes"
-    | "belongs_to"
-    | "secures"
-    | "communicates_with";
-  description?: string;
-  createdAt: string;
-};
-```
-
-### DocumentationPage
-
-```ts
-type DocumentationPage = {
-  id: string;
-  artifactId: string;
-  markdownContent: string;
-  renderedHtml?: string;
-  version: number;
-  createdAt: string;
-  updatedAt: string;
-};
-```
-
-### ApiSpec
-
-```ts
-type ApiSpec = {
-  id: string;
-  artifactId: string;
-  format: "openapi" | "custom";
-  rawContent: string;
-  parsedContent?: unknown;
-  version: number;
-  createdAt: string;
-  updatedAt: string;
-};
-```
-
-### ApiEndpoint
-
-```ts
-type ApiEndpoint = {
-  id: string;
-  apiSpecId: string;
-  artifactId?: string;
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-  path: string;
-  summary?: string;
-  requestSchema?: unknown;
-  responseSchema?: unknown;
-  requiresAuth: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-```
-
-### Diagram
-
-```ts
-type Diagram = {
-  id: string;
-  artifactId: string;
-  diagramType: "uml" | "erd" | "flow" | "architecture";
-  sourceCode: string;
-  renderedPreviewUrl?: string;
-  createdAt: string;
-  updatedAt: string;
-};
-```
-
-### ValidationIssue
-
-```ts
-type ValidationIssue = {
-  id: string;
-  projectId: string;
-  artifactId?: string;
-  severity: "info" | "warning" | "error" | "critical";
-  category: "api" | "database" | "security" | "documentation" | "architecture";
-  message: string;
-  status: "open" | "resolved" | "ignored";
-  createdAt: string;
-  updatedAt: string;
-};
-```
-
-### VersionHistory
-
-```ts
-type VersionHistory = {
-  id: string;
-  entityType: string;
-  entityId: string;
-  changeType: "created" | "updated" | "deleted" | "linked" | "unlinked";
-  oldValue?: unknown;
-  newValue?: unknown;
-  changedBy: string;
-  createdAt: string;
-};
-```
-
----
-
-## 5. Standard API Response Shape
-
-All frontend API client functions must expect this structure:
-
-### Success
-
-```json
-{
-  "success": true,
-  "data": {},
-  "message": "Operation successful"
-}
-```
-
-### Error
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid input",
-    "details": {}
-  }
-}
-```
-
----
-
-## 6. Authentication Pages
-
-### Page: `/login`
-
-Purpose:
+Visible layout:
 
 ```text
+Left Sidebar
+Top Bar
+Main Content Area
+Optional Right Context Panel
+```
+
+### 3.2 Left Sidebar
+
+Must show:
+
+```text
+Dashboard
+Projects
+Current Project
+Artifacts
+Knowledge Graph
+Documentation
+API Specs
+Database Model
+Diagrams
+Validation
+Version History
+Export SSOT
+Settings
+```
+
+### 3.3 Top Bar
+
+Must show:
+
+```text
+Current project name
+Global search input
+Validation status indicator
+User avatar/menu
+Theme switcher
+```
+
+### 3.4 Right Context Panel
+
+Used when editing/viewing artifacts.
+
+Must show:
+
+```text
+Artifact metadata
+Relations
+Linked documentation
+Linked endpoints
+Linked diagrams
+Validation warnings
+Recent changes
+```
+
+---
+
+## 4. Global UI States
+
+Every page must implement:
+
+```text
+Loading state
+Empty state
+Error state
+Success state
+Permission-denied state
+```
+
+Example:
+
+```text
+Loading: Skeleton cards or spinner
+Empty: Helpful message + primary action button
+Error: Message + retry button
+Permission denied: Explanation + back button
+```
+
+---
+
+## 5. Routing Structure
+
+Use these routes:
+
+```text
+/
+ /login
+ /register
+ /dashboard
+ /projects
+ /projects/new
+ /projects/[projectId]
+ /projects/[projectId]/artifacts
+ /projects/[projectId]/artifacts/new
+ /projects/[projectId]/artifacts/[artifactId]
+ /projects/[projectId]/docs
+ /projects/[projectId]/docs/[artifactId]
+ /projects/[projectId]/api-specs
+ /projects/[projectId]/api-specs/[apiSpecId]
+ /projects/[projectId]/database
+ /projects/[projectId]/diagrams
+ /projects/[projectId]/diagrams/[diagramId]
+ /projects/[projectId]/graph
+ /projects/[projectId]/validation
+ /projects/[projectId]/versions
+ /projects/[projectId]/export
+ /settings
+```
+
+---
+
+# 6. Page-by-Page Requirements
+
+---
+
+## 6.1 Login Page
+
+### Route
+
+```text
+/login
+```
+
+### Purpose
+
 Allow existing users to authenticate.
-```
 
-UI elements:
+### Must Show
 
 ```text
+Platform logo/name
 Email input
 Password input
 Login button
-Error message area
 Link to register
+Error message area
 ```
 
-API:
+### User Workflow
+
+```text
+User enters email and password
+User clicks Login
+Frontend sends POST /api/auth/login
+If successful, store access token
+Redirect to /dashboard
+If failed, show error message
+```
+
+### API Endpoint
 
 ```http
 POST /api/auth/login
 ```
 
-Request:
+### Request Payload
 
 ```json
 {
   "email": "user@example.com",
-  "password": "SecurePassword123!"
+  "password": "Password123!"
 }
 ```
 
-Response:
+### Success Response
 
 ```json
 {
@@ -346,35 +246,42 @@ Response:
   "data": {
     "accessToken": "jwt-token",
     "user": {
-      "id": "uuid",
+      "id": "user-id",
       "email": "user@example.com",
       "firstName": "Deyvid",
       "lastName": "Popov",
-      "role": "admin"
+      "role": "ADMIN"
     }
-  }
+  },
+  "message": "Login successful"
 }
 ```
 
-Frontend behavior:
+### Acceptance Criteria
 
 ```text
-Store JWT securely according to selected auth strategy.
-Redirect to /dashboard after successful login.
-Show backend error message on failed login.
+[ ] Login form validates required fields
+[ ] Invalid credentials show visible error
+[ ] Successful login redirects to dashboard
+[ ] Token is stored safely
+[ ] API client uses token automatically
 ```
 
 ---
 
-### Page: `/register`
+## 6.2 Register Page
 
-Purpose:
+### Route
 
 ```text
-Allow user registration.
+/register
 ```
 
-UI elements:
+### Purpose
+
+Create a new account.
+
+### Must Show
 
 ```text
 First name input
@@ -386,145 +293,763 @@ Register button
 Link to login
 ```
 
-API:
+### User Workflow
+
+```text
+User fills form
+Frontend validates password match
+Frontend sends POST /api/auth/register
+If successful, redirect to login or dashboard
+If failed, show validation errors
+```
+
+### API Endpoint
 
 ```http
 POST /api/auth/register
 ```
 
-Request:
+### Request Payload
 
 ```json
 {
   "firstName": "Deyvid",
   "lastName": "Popov",
   "email": "user@example.com",
-  "password": "SecurePassword123!"
+  "password": "Password123!"
 }
 ```
 
-Response:
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "uuid",
-    "email": "user@example.com",
-    "firstName": "Deyvid",
-    "lastName": "Popov",
-    "role": "developer"
-  }
-}
-```
-
-Frontend behavior:
+### Acceptance Criteria
 
 ```text
-Validate password confirmation locally.
-Redirect to /login or /dashboard depending on backend behavior.
+[ ] Required fields are validated
+[ ] Password confirmation is checked
+[ ] Email format is validated
+[ ] API validation errors are displayed
 ```
 
 ---
 
-## 7. Dashboard Page
+## 6.3 Dashboard Page
 
-### Page: `/dashboard`
-
-Purpose:
+### Route
 
 ```text
-Main overview of user projects, recent activity, and validation status.
+/dashboard
 ```
 
-UI sections:
+### Purpose
+
+Main entry point after login.
+
+### Must Show
 
 ```text
+Welcome section
 Project cards
-Recent artifacts
-Open validation issues
+Recent activity
+Validation summary
 Quick search
 Create project button
+Graph preview area
 ```
 
-APIs:
+### Visual Layout
+
+```text
+Top row:
+- Total projects
+- Total artifacts
+- Open validation issues
+- Recent changes
+
+Middle:
+- Project cards grid
+
+Right or bottom:
+- Recent activity timeline
+```
+
+### User Workflow
+
+```text
+User opens dashboard
+Frontend loads projects
+User can open a project
+User can create a new project
+User can search globally
+```
+
+### API Endpoints
 
 ```http
 GET /api/projects
-GET /api/dashboard/summary
+GET /api/activity/recent
 ```
 
-Example response for dashboard summary:
-
-```json
-{
-  "success": true,
-  "data": {
-    "projectCount": 3,
-    "artifactCount": 42,
-    "openValidationIssues": 7,
-    "recentActivity": [
-      {
-        "id": "uuid",
-        "type": "artifact_updated",
-        "message": "Authentication API was updated",
-        "createdAt": "2026-05-26T10:00:00.000Z"
-      }
-    ]
-  }
-}
-```
-
-Acceptance criteria:
+### Project Card Must Show
 
 ```text
-User can see all accessible projects.
-User can create a new project.
-User can navigate to project workspace.
-Dashboard handles empty state.
+Project name
+Description
+Artifact count
+Open validation issues
+Last updated date
+Open button
+```
+
+### Acceptance Criteria
+
+```text
+[ ] Dashboard loads user's projects
+[ ] Empty state appears when no projects exist
+[ ] Create project button is visible
+[ ] Project cards navigate to workspace
+[ ] Validation summary is visible
 ```
 
 ---
 
-## 8. Projects Pages
+## 6.4 Projects List Page
 
-### Page: `/projects`
-
-Purpose:
+### Route
 
 ```text
-Show all projects available to the current user.
+/projects
 ```
 
-APIs:
+### Purpose
+
+Show all projects available to the user.
+
+### Must Show
+
+```text
+Project table or cards
+Search/filter bar
+Create new project button
+Sort by name/date/status
+```
+
+### API Endpoint
 
 ```http
 GET /api/projects
-POST /api/projects
 ```
 
-Create project request:
-
-```json
-{
-  "name": "Diploma Platform",
-  "description": "Integrated software documentation and architecture platform"
-}
-```
-
-Project list response:
+### Success Response
 
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": "uuid",
-      "name": "Diploma Platform",
-      "description": "Integrated software documentation and architecture platform",
-      "ownerId": "uuid",
-      "createdAt": "2026-05-26T10:00:00.000Z",
+      "id": "project-id",
+      "name": "Architecture Platform",
+      "description": "SSOT documentation platform",
+      "artifactCount": 24,
+      "validationIssueCount": 3,
       "updatedAt": "2026-05-26T10:00:00.000Z"
+    }
+  ],
+  "message": "Projects loaded"
+}
+```
+
+---
+
+## 6.5 Create Project Page
+
+### Route
+
+```text
+/projects/new
+```
+
+### Purpose
+
+Create a new software documentation project.
+
+### Must Show
+
+```text
+Project name input
+Project description textarea
+Optional initial template selector
+Create button
+Cancel button
+```
+
+### API Endpoint
+
+```http
+POST /api/projects
+```
+
+### Request Payload
+
+```json
+{
+  "name": "My Software System",
+  "description": "Central documentation and architecture project"
+}
+```
+
+### User Workflow
+
+```text
+User creates project
+Frontend sends POST /api/projects
+Backend returns created project
+Frontend redirects to /projects/[projectId]
+```
+
+---
+
+## 6.6 Project Workspace Page
+
+### Route
+
+```text
+/projects/[projectId]
+```
+
+### Purpose
+
+Main workspace for a selected project.
+
+### Must Show
+
+```text
+Project title
+Project description
+Project health/validation status
+Artifact overview
+Knowledge graph preview
+Recent version changes
+Quick actions
+```
+
+### Quick Actions
+
+```text
+Create artifact
+Import API spec
+Create documentation page
+Open graph
+Run validation
+Export SSOT
+```
+
+### API Endpoints
+
+```http
+GET /api/projects/:projectId
+GET /api/projects/:projectId/artifacts
+GET /api/projects/:projectId/graph
+GET /api/projects/:projectId/validation-issues
+GET /api/projects/:projectId/versions
+```
+
+### Acceptance Criteria
+
+```text
+[ ] Project workspace gives clear overview
+[ ] Main platform modules are reachable
+[ ] User can run validation from this page
+[ ] User can open graph from this page
+```
+
+---
+
+## 6.7 Artifacts List Page
+
+### Route
+
+```text
+/projects/[projectId]/artifacts
+```
+
+### Purpose
+
+Show all artifacts inside a project.
+
+### Must Show
+
+```text
+Artifact list/table
+Artifact type filter
+Status filter
+Search input
+Create artifact button
+Relation count
+Validation count
+Last updated
+```
+
+### Artifact Types
+
+```text
+DOCUMENTATION
+API_SPEC
+API_ENDPOINT
+SERVICE
+DATABASE_MODEL
+DATABASE_ENTITY
+DIAGRAM
+REQUIREMENT
+SECURITY_POLICY
+ENVIRONMENT
+EXTERNAL_SYSTEM
+```
+
+### API Endpoint
+
+```http
+GET /api/projects/:projectId/artifacts
+```
+
+### Query Parameters
+
+```text
+?type=SERVICE&status=ACTIVE&search=auth
+```
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "artifact-id",
+      "title": "Authentication Service",
+      "type": "SERVICE",
+      "status": "ACTIVE",
+      "description": "Handles login and JWT generation",
+      "relationCount": 5,
+      "validationIssueCount": 1,
+      "updatedAt": "2026-05-26T10:00:00.000Z"
+    }
+  ],
+  "message": "Artifacts loaded"
+}
+```
+
+---
+
+## 6.8 Create Artifact Page
+
+### Route
+
+```text
+/projects/[projectId]/artifacts/new
+```
+
+### Purpose
+
+Create a new engineering artifact.
+
+### Must Show
+
+```text
+Artifact title input
+Artifact type dropdown
+Status dropdown
+Description textarea
+Tags input
+Create button
+Cancel button
+```
+
+### API Endpoint
+
+```http
+POST /api/projects/:projectId/artifacts
+```
+
+### Request Payload
+
+```json
+{
+  "title": "Authentication Service",
+  "type": "SERVICE",
+  "status": "ACTIVE",
+  "description": "Handles authentication and JWT issuance",
+  "tags": ["auth", "security"]
+}
+```
+
+### User Workflow
+
+```text
+User creates artifact
+Frontend redirects to artifact detail page
+User can then add relations, docs, diagrams, or validation metadata
+```
+
+---
+
+## 6.9 Artifact Detail Page
+
+### Route
+
+```text
+/projects/[projectId]/artifacts/[artifactId]
+```
+
+### Purpose
+
+Central view for one artifact.
+
+### Must Show
+
+```text
+Artifact title
+Type badge
+Status badge
+Description
+Tags
+Relations graph preview
+Incoming relations
+Outgoing relations
+Linked documentation
+Linked API endpoints
+Linked diagrams
+Validation issues
+Version history preview
+Edit button
+Delete button
+```
+
+### Required Sections
+
+```text
+Overview
+Relations
+Documentation
+API Links
+Diagrams
+Validation
+History
+```
+
+### API Endpoints
+
+```http
+GET /api/artifacts/:artifactId
+PATCH /api/artifacts/:artifactId
+DELETE /api/artifacts/:artifactId
+GET /api/artifacts/:artifactId/relations
+GET /api/artifacts/:artifactId/versions
+```
+
+### Update Payload
+
+```json
+{
+  "title": "Authentication Service",
+  "status": "ACTIVE",
+  "description": "Updated description"
+}
+```
+
+### Acceptance Criteria
+
+```text
+[ ] Artifact detail clearly shows connections
+[ ] User can add/remove relations
+[ ] User can see validation issues for this artifact
+[ ] User can see recent changes
+```
+
+---
+
+## 6.10 Relation Editor
+
+### Used On
+
+```text
+Artifact detail page
+Graph page
+Right context panel
+```
+
+### Purpose
+
+Create links between artifacts.
+
+### Must Show
+
+```text
+Source artifact
+Target artifact selector
+Relation type dropdown
+Description field
+Create relation button
+Existing relations list
+Delete relation option
+```
+
+### Relation Types
+
+```text
+DEPENDS_ON
+DOCUMENTS
+IMPLEMENTS
+USES
+EXPOSES
+BELONGS_TO
+SECURES
+VALIDATES
+GENERATES
+DEPLOYED_TO
+COMMUNICATES_WITH
+```
+
+### API Endpoint
+
+```http
+POST /api/artifacts/:artifactId/relations
+DELETE /api/relations/:relationId
+```
+
+### Request Payload
+
+```json
+{
+  "targetArtifactId": "target-artifact-id",
+  "relationType": "DEPENDS_ON",
+  "description": "Authentication service depends on user database"
+}
+```
+
+---
+
+## 6.11 Documentation Pages
+
+### Route
+
+```text
+/projects/[projectId]/docs
+/projects/[projectId]/docs/[artifactId]
+```
+
+### Purpose
+
+Allow users to write and edit Markdown documentation linked to artifacts.
+
+### Docs List Must Show
+
+```text
+Documentation artifacts
+Title
+Linked artifact type
+Last edited
+Author
+Validation warnings
+```
+
+### Editor Page Must Show
+
+```text
+Markdown editor
+Live preview
+Save button
+Autosave indicator
+Linked artifact panel
+Mermaid preview support
+Version history button
+```
+
+### API Endpoints
+
+```http
+GET /api/projects/:projectId/docs
+GET /api/artifacts/:artifactId/documentation
+PUT /api/artifacts/:artifactId/documentation
+```
+
+### Save Payload
+
+```json
+{
+  "markdownContent": "# Authentication Service\n\nThis service handles login..."
+}
+```
+
+### Acceptance Criteria
+
+```text
+[ ] Markdown editor works
+[ ] Live preview works
+[ ] Save persists content
+[ ] Documentation remains linked to artifact
+[ ] Version history is created after changes
+```
+
+---
+
+## 6.12 API Specs Page
+
+### Route
+
+```text
+/projects/[projectId]/api-specs
+```
+
+### Purpose
+
+Import and inspect OpenAPI/API specifications.
+
+### Must Show
+
+```text
+Upload OpenAPI file button
+Paste OpenAPI JSON/YAML textarea
+Imported specs list
+Endpoint table
+Linked service column
+Validation status
+```
+
+### API Endpoints
+
+```http
+GET /api/projects/:projectId/api-specs
+POST /api/projects/:projectId/api-specs/import
+GET /api/api-specs/:apiSpecId
+```
+
+### Import Payload
+
+```json
+{
+  "name": "Authentication API",
+  "format": "OPENAPI",
+  "rawContent": "{... OpenAPI JSON or YAML ...}"
+}
+```
+
+### Endpoint Table Must Show
+
+```text
+Method
+Path
+Summary
+Requires authentication
+Linked artifact
+Validation status
+```
+
+### Acceptance Criteria
+
+```text
+[ ] User can import OpenAPI content
+[ ] Endpoints appear after parsing
+[ ] Endpoints can be linked to services/docs
+[ ] Invalid specs show readable errors
+```
+
+---
+
+## 6.13 API Spec Detail Page
+
+### Route
+
+```text
+/projects/[projectId]/api-specs/[apiSpecId]
+```
+
+### Purpose
+
+Inspect one imported API specification.
+
+### Must Show
+
+```text
+API spec name
+Version
+Raw content view
+Parsed endpoint table
+Endpoint details drawer
+Linked services
+Linked documentation
+Validation issues
+```
+
+### API Endpoints
+
+```http
+GET /api/api-specs/:apiSpecId
+GET /api/api-specs/:apiSpecId/endpoints
+```
+
+---
+
+## 6.14 Database Model Page
+
+### Route
+
+```text
+/projects/[projectId]/database
+```
+
+### Purpose
+
+Display database models and entities.
+
+### Must Show
+
+```text
+Database model summary
+Tables/entities list
+Field viewer
+Relationship viewer
+Normalization status
+Validation warnings
+Create entity button
+```
+
+### API Endpoints
+
+```http
+GET /api/projects/:projectId/database-models
+POST /api/projects/:projectId/database-models
+GET /api/database-models/:databaseModelId/entities
+```
+
+### Database Entity Must Show
+
+```text
+Entity name
+Type table/collection
+Fields
+Primary keys
+Foreign keys
+Relations
+Validation status
+```
+
+### Example Entity Payload
+
+```json
+{
+  "name": "users",
+  "type": "TABLE",
+  "fields": [
+    {
+      "name": "id",
+      "type": "uuid",
+      "isPrimaryKey": true,
+      "isNullable": false
+    },
+    {
+      "name": "email",
+      "type": "varchar",
+      "isUnique": true,
+      "isNullable": false
     }
   ]
 }
@@ -532,211 +1057,137 @@ Project list response:
 
 ---
 
-### Page: `/projects/[projectId]`
+## 6.15 Diagrams Page
 
-Purpose:
-
-```text
-Project workspace landing page.
-```
-
-UI sections:
+### Route
 
 ```text
-Project title and description
-Artifact count
-Knowledge graph preview
-Open validation issues
-Recent versions
-Navigation cards to modules
+/projects/[projectId]/diagrams
+/projects/[projectId]/diagrams/[diagramId]
 ```
 
-APIs:
+### Purpose
+
+Create and render UML, ERD, flow, and architecture diagrams.
+
+### List Page Must Show
+
+```text
+Diagram cards
+Diagram type
+Linked artifact
+Last updated
+Create diagram button
+```
+
+### Diagram Editor Must Show
+
+```text
+Diagram title
+Diagram type selector
+Source editor
+Rendered preview
+Linked artifacts panel
+Save button
+```
+
+### Diagram Types
+
+```text
+MERMAID
+UML
+ERD
+ARCHITECTURE_FLOW
+SEQUENCE
+COMPONENT
+```
+
+### API Endpoints
 
 ```http
-GET /api/projects/:projectId
-GET /api/projects/:projectId/summary
+GET /api/projects/:projectId/diagrams
+POST /api/projects/:projectId/diagrams
+GET /api/diagrams/:diagramId
+PATCH /api/diagrams/:diagramId
+DELETE /api/diagrams/:diagramId
+```
+
+### Create Payload
+
+```json
+{
+  "title": "Authentication Flow",
+  "diagramType": "SEQUENCE",
+  "sourceCode": "sequenceDiagram\nUser->>Frontend: Login\nFrontend->>Backend: POST /login",
+  "linkedArtifactIds": ["artifact-id-1"]
+}
 ```
 
 ---
 
-## 9. Artifacts Page
+## 6.16 Knowledge Graph Page
 
-### Page: `/projects/[projectId]/artifacts`
-
-Purpose:
+### Route
 
 ```text
-Create, view, edit, filter, and connect artifacts.
+/projects/[projectId]/graph
 ```
 
-UI elements:
+### Purpose
+
+Visualize interconnected artifacts as a graph.
+
+### Must Show
 
 ```text
-Artifact table/list
-Create artifact button
-Type filter
-Status filter
-Search input
-Artifact detail drawer
-Relation editor
-```
-
-APIs:
-
-```http
-GET    /api/projects/:projectId/artifacts
-POST   /api/projects/:projectId/artifacts
-GET    /api/artifacts/:artifactId
-PATCH  /api/artifacts/:artifactId
-DELETE /api/artifacts/:artifactId
-```
-
-Create artifact request:
-
-```json
-{
-  "title": "Authentication Service",
-  "type": "service",
-  "description": "Handles user login, registration, and JWT authentication",
-  "status": "active"
-}
-```
-
-Update artifact request:
-
-```json
-{
-  "title": "Authentication Service",
-  "description": "Updated service description",
-  "status": "active"
-}
-```
-
-Artifact response:
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "uuid",
-    "projectId": "uuid",
-    "title": "Authentication Service",
-    "type": "service",
-    "description": "Handles user login, registration, and JWT authentication",
-    "status": "active",
-    "createdBy": "uuid",
-    "createdAt": "2026-05-26T10:00:00.000Z",
-    "updatedAt": "2026-05-26T10:00:00.000Z"
-  }
-}
-```
-
-Acceptance criteria:
-
-```text
-User can create artifacts.
-User can edit artifacts.
-User can delete artifacts after confirmation.
-User can filter by type and status.
-User can open artifact detail drawer.
-```
-
----
-
-## 10. Artifact Relations
-
-Purpose:
-
-```text
-Create the knowledge graph between artifacts.
-```
-
-Frontend components:
-
-```text
-RelationEditor
-RelationList
-RelationCreateDialog
-```
-
-APIs:
-
-```http
-GET    /api/artifacts/:artifactId/relations
-POST   /api/artifacts/:artifactId/relations
-DELETE /api/relations/:relationId
-```
-
-Create relation request:
-
-```json
-{
-  "targetArtifactId": "uuid",
-  "relationType": "depends_on",
-  "description": "Authentication Service depends on User Database"
-}
-```
-
-Relation response:
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "uuid",
-    "sourceArtifactId": "uuid",
-    "targetArtifactId": "uuid",
-    "relationType": "depends_on",
-    "description": "Authentication Service depends on User Database",
-    "createdAt": "2026-05-26T10:00:00.000Z"
-  }
-}
-```
-
-Acceptance criteria:
-
-```text
-User can connect two artifacts.
-User can choose relation type.
-User can delete a relation.
-Graph page updates after relation changes.
-```
-
----
-
-## 11. Knowledge Graph Page
-
-### Page: `/projects/[projectId]/graph`
-
-Purpose:
-
-```text
-Visualize interconnected artifacts as an interactive graph.
-```
-
-UI elements:
-
-```text
-React Flow canvas
-Node type legend
-Relation type legend
-Search/highlight artifact
-Filter by artifact type
-Filter by relation type
-Node detail side panel
-Mini-map
+Interactive graph canvas
+Artifact nodes
+Relationship edges
+Node type colors/icons
 Zoom controls
-Auto-layout button
+Search/filter panel
+Selected node details
+Create relation from graph
+Run validation button
 ```
 
-API:
+### Node Types
+
+```text
+Service
+API
+Database
+Documentation
+Diagram
+Requirement
+Security Policy
+Environment
+External System
+```
+
+### Edge Types
+
+```text
+DEPENDS_ON
+DOCUMENTS
+IMPLEMENTS
+USES
+EXPOSES
+BELONGS_TO
+SECURES
+VALIDATES
+GENERATES
+DEPLOYED_TO
+COMMUNICATES_WITH
+```
+
+### API Endpoint
 
 ```http
 GET /api/projects/:projectId/graph
 ```
 
-Response:
+### Success Response
 
 ```json
 {
@@ -744,593 +1195,513 @@ Response:
   "data": {
     "nodes": [
       {
-        "id": "artifact-uuid",
+        "id": "artifact-id",
         "label": "Authentication Service",
-        "type": "service",
-        "status": "active",
-        "metadata": {
-          "description": "Handles auth"
-        }
+        "type": "SERVICE",
+        "status": "ACTIVE"
       }
     ],
     "edges": [
       {
-        "id": "relation-uuid",
-        "source": "source-artifact-uuid",
-        "target": "target-artifact-uuid",
-        "type": "depends_on",
-        "label": "depends_on"
+        "id": "relation-id",
+        "source": "artifact-id",
+        "target": "target-id",
+        "type": "DEPENDS_ON",
+        "label": "depends on"
       }
     ]
-  }
+  },
+  "message": "Graph loaded"
 }
 ```
 
-Acceptance criteria:
+### User Workflow
 
 ```text
-Graph renders all artifacts as nodes.
-Graph renders relations as edges.
-Clicking node opens detail panel.
-Filters affect visible graph.
-Graph works with empty project state.
+User opens graph
+Frontend loads all artifacts and relations
+User clicks node
+Right panel shows artifact details
+User can filter graph by type/status
+User can create new relation by selecting source and target
+User can open selected artifact detail
+```
+
+### Acceptance Criteria
+
+```text
+[ ] Graph renders correctly
+[ ] Nodes are clickable
+[ ] Selected node opens context panel
+[ ] Filters affect visible graph
+[ ] Relation creation updates graph
 ```
 
 ---
 
-## 12. Documentation Editor Page
+## 6.17 Validation Page
 
-### Page: `/projects/[projectId]/docs/[artifactId]`
-
-Purpose:
+### Route
 
 ```text
-Edit Markdown documentation connected to an artifact.
+/projects/[projectId]/validation
 ```
 
-UI elements:
+### Purpose
 
-```text
-Markdown editor
-Live preview
-Save button
-Autosave indicator
-Mermaid preview support
-Version number
-Relation sidebar
-```
+Show consistency, traceability, documentation, API, database, and security issues.
 
-APIs:
-
-```http
-GET   /api/artifacts/:artifactId/documentation
-PUT   /api/artifacts/:artifactId/documentation
-```
-
-Update documentation request:
-
-```json
-{
-  "markdownContent": "# Authentication Service\n\nThis service handles login and JWT generation."
-}
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "uuid",
-    "artifactId": "uuid",
-    "markdownContent": "# Authentication Service\n\nThis service handles login and JWT generation.",
-    "renderedHtml": "<h1>Authentication Service</h1><p>This service handles login and JWT generation.</p>",
-    "version": 2,
-    "createdAt": "2026-05-26T10:00:00.000Z",
-    "updatedAt": "2026-05-26T10:05:00.000Z"
-  }
-}
-```
-
-Acceptance criteria:
-
-```text
-User can edit and save Markdown.
-Preview updates while typing.
-Mermaid diagrams render in preview.
-Save creates version history.
-```
-
----
-
-## 13. API Module Page
-
-### Page: `/projects/[projectId]/api`
-
-Purpose:
-
-```text
-Import and inspect API specifications and endpoints.
-```
-
-UI elements:
-
-```text
-OpenAPI upload/import area
-Manual API spec creation
-Endpoint table
-Method/path filters
-Endpoint detail panel
-Link endpoint to artifact
-```
-
-APIs:
-
-```http
-GET  /api/projects/:projectId/api-specs
-POST /api/projects/:projectId/api-specs
-GET  /api/api-specs/:apiSpecId/endpoints
-POST /api/api-specs/:apiSpecId/parse
-```
-
-Create/import API spec request:
-
-```json
-{
-  "artifactId": "uuid",
-  "format": "openapi",
-  "rawContent": "openapi: 3.0.0\ninfo:\n  title: Auth API\n  version: 1.0.0\npaths:\n  /auth/login:\n    post:\n      summary: Login user"
-}
-```
-
-Endpoint response:
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "uuid",
-      "apiSpecId": "uuid",
-      "artifactId": "uuid",
-      "method": "POST",
-      "path": "/auth/login",
-      "summary": "Login user",
-      "requestSchema": {},
-      "responseSchema": {},
-      "requiresAuth": false,
-      "createdAt": "2026-05-26T10:00:00.000Z",
-      "updatedAt": "2026-05-26T10:00:00.000Z"
-    }
-  ]
-}
-```
-
-Acceptance criteria:
-
-```text
-User can add OpenAPI raw content.
-Frontend can trigger backend parsing.
-Parsed endpoints appear in a table.
-Endpoints can be linked to artifacts.
-```
-
----
-
-## 14. Diagram Page
-
-### Page: `/projects/[projectId]/diagrams`
-
-Purpose:
-
-```text
-Create and render UML, ERD, flow, and architecture diagrams.
-```
-
-UI elements:
-
-```text
-Diagram list
-Create diagram button
-Diagram type selector
-Source code editor
-Live Mermaid preview
-Save button
-```
-
-APIs:
-
-```http
-GET  /api/projects/:projectId/diagrams
-POST /api/projects/:projectId/diagrams
-GET  /api/diagrams/:diagramId
-PATCH /api/diagrams/:diagramId
-DELETE /api/diagrams/:diagramId
-```
-
-Create diagram request:
-
-```json
-{
-  "artifactId": "uuid",
-  "diagramType": "architecture",
-  "sourceCode": "graph TD\nA[Frontend] --> B[Backend]\nB --> C[PostgreSQL]"
-}
-```
-
-Diagram response:
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "uuid",
-    "artifactId": "uuid",
-    "diagramType": "architecture",
-    "sourceCode": "graph TD\nA[Frontend] --> B[Backend]\nB --> C[PostgreSQL]",
-    "renderedPreviewUrl": null,
-    "createdAt": "2026-05-26T10:00:00.000Z",
-    "updatedAt": "2026-05-26T10:00:00.000Z"
-  }
-}
-```
-
-Acceptance criteria:
-
-```text
-User can create diagrams.
-User can edit Mermaid source.
-Preview renders source code.
-Diagram is linked to artifact.
-```
-
----
-
-## 15. Database Modeling Page
-
-### Page: `/projects/[projectId]/database`
-
-Purpose:
-
-```text
-Display database models, entities, fields, and validation information.
-```
-
-UI elements:
-
-```text
-Database model list
-Entity/table list
-Field viewer
-Relation viewer
-Normalization status
-Validation warnings
-```
-
-APIs:
-
-```http
-GET  /api/projects/:projectId/database-models
-POST /api/projects/:projectId/database-models
-GET  /api/database-models/:databaseModelId/entities
-POST /api/database-models/:databaseModelId/entities
-```
-
-Create database entity request:
-
-```json
-{
-  "name": "User",
-  "type": "table",
-  "fieldsJson": [
-    {
-      "name": "id",
-      "type": "uuid",
-      "primaryKey": true
-    },
-    {
-      "name": "email",
-      "type": "varchar",
-      "unique": true
-    }
-  ],
-  "relationsJson": [],
-  "normalizationStatus": "3NF"
-}
-```
-
-Acceptance criteria:
-
-```text
-User can view database model structure.
-User can create entities/tables.
-User can inspect fields.
-User can see normalization or validation status.
-```
-
----
-
-## 16. Validation Page
-
-### Page: `/projects/[projectId]/validation`
-
-Purpose:
-
-```text
-Show cross-module consistency and architecture validation results.
-```
-
-UI elements:
+### Must Show
 
 ```text
 Run validation button
-Issue summary cards
-Issue table
+Validation summary cards
+Issues table
 Severity filter
 Category filter
-Resolve/ignore controls
-Linked artifact button
+Status filter
+Linked artifact column
+Resolve/ignore buttons
 ```
 
-APIs:
+### Severity Levels
+
+```text
+INFO
+WARNING
+ERROR
+CRITICAL
+```
+
+### Categories
+
+```text
+DOCUMENTATION
+API
+DATABASE
+SECURITY
+ARCHITECTURE
+RELATIONSHIP
+VERSIONING
+```
+
+### API Endpoints
 
 ```http
-POST  /api/projects/:projectId/validate
-GET   /api/projects/:projectId/validation-issues
+POST /api/projects/:projectId/validate
+GET /api/projects/:projectId/validation-issues
 PATCH /api/validation-issues/:issueId
 ```
 
-Run validation response:
+### Validation Issue Response
 
 ```json
 {
-  "success": true,
-  "data": {
-    "issuesCreated": 3,
-    "issues": [
-      {
-        "id": "uuid",
-        "projectId": "uuid",
-        "artifactId": "uuid",
-        "severity": "warning",
-        "category": "api",
-        "message": "API endpoint exists without linked documentation.",
-        "status": "open",
-        "createdAt": "2026-05-26T10:00:00.000Z",
-        "updatedAt": "2026-05-26T10:00:00.000Z"
-      }
-    ]
-  }
+  "id": "issue-id",
+  "severity": "WARNING",
+  "category": "DOCUMENTATION",
+  "message": "API endpoint has no linked documentation",
+  "artifactId": "artifact-id",
+  "artifactTitle": "POST /auth/login",
+  "status": "OPEN",
+  "createdAt": "2026-05-26T10:00:00.000Z"
 }
 ```
 
-Update issue request:
-
-```json
-{
-  "status": "resolved"
-}
-```
-
-Acceptance criteria:
+### Acceptance Criteria
 
 ```text
-User can run validation.
-Issues are grouped by severity and category.
-User can resolve or ignore issues.
-Issue can navigate to related artifact.
+[ ] User can run validation
+[ ] Issues are grouped by severity/category
+[ ] User can open affected artifact
+[ ] User can mark issue resolved or ignored
 ```
 
 ---
 
-## 17. Version History Page
+## 6.18 Version History Page
 
-### Page: `/projects/[projectId]/versions`
-
-Purpose:
+### Route
 
 ```text
-Show traceability and evolution of artifacts.
+/projects/[projectId]/versions
 ```
 
-UI elements:
+### Purpose
+
+Show how the architecture evolved over time.
+
+### Must Show
 
 ```text
-Timeline
+Timeline of changes
 Entity type filter
+Changed by filter
 Change type filter
-Artifact filter
-Diff viewer
+Before/after comparison
+Open related artifact button
 ```
 
-APIs:
+### Change Types
+
+```text
+CREATED
+UPDATED
+DELETED
+LINKED
+UNLINKED
+VALIDATED
+EXPORTED
+```
+
+### API Endpoint
 
 ```http
 GET /api/projects/:projectId/versions
-GET /api/versions/:versionId
 ```
 
-Response:
+### Response Example
 
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": "uuid",
-      "entityType": "Artifact",
-      "entityId": "uuid",
-      "changeType": "updated",
+      "id": "version-id",
+      "entityType": "ARTIFACT",
+      "entityId": "artifact-id",
+      "changeType": "UPDATED",
       "oldValue": {
-        "title": "Auth Service"
+        "status": "DRAFT"
       },
       "newValue": {
-        "title": "Authentication Service"
+        "status": "ACTIVE"
       },
-      "changedBy": "uuid",
+      "changedBy": {
+        "id": "user-id",
+        "name": "Deyvid Popov"
+      },
       "createdAt": "2026-05-26T10:00:00.000Z"
     }
-  ]
+  ],
+  "message": "Version history loaded"
 }
-```
-
-Acceptance criteria:
-
-```text
-User can see historical changes.
-User can filter by entity/change type.
-User can inspect old and new values.
 ```
 
 ---
 
-## 18. Export Page
+## 6.19 Export SSOT Page
 
-### Page: `/projects/[projectId]/export`
-
-Purpose:
+### Route
 
 ```text
-Generate Single Source of Truth export package.
+/projects/[projectId]/export
 ```
 
-UI elements:
+### Purpose
+
+Generate and download the Single Source of Truth package.
+
+### Must Show
 
 ```text
-Export options
-Include documentation checkbox
-Include API specs checkbox
-Include diagrams checkbox
-Include validation report checkbox
-Export button
-Export history list
+Export explanation
+Export format selection
+Included sections checklist
+Preview summary
+Generate export button
 Download button
+Previous exports list
 ```
 
-APIs:
+### Export Formats
+
+```text
+JSON
+MARKDOWN
+PDF
+ZIP
+```
+
+### Included Sections
+
+```text
+Requirements
+Artifacts
+Relations
+Knowledge Graph
+API Specifications
+Database Models
+Diagrams
+Validation Report
+Version History
+Security Policies
+```
+
+### API Endpoints
 
 ```http
 POST /api/projects/:projectId/export
-GET  /api/projects/:projectId/exports
-GET  /api/exports/:exportId/download
+GET /api/projects/:projectId/exports
+GET /api/exports/:exportId/download
 ```
 
-Export request:
+### Export Payload
 
 ```json
 {
-  "includeDocumentation": true,
-  "includeApiSpecs": true,
-  "includeDiagrams": true,
-  "includeValidationReport": true,
-  "format": "json"
+  "format": "ZIP",
+  "sections": [
+    "ARTIFACTS",
+    "RELATIONS",
+    "GRAPH",
+    "API_SPECS",
+    "DATABASE_MODELS",
+    "DIAGRAMS",
+    "VALIDATION_REPORT",
+    "VERSION_HISTORY"
+  ]
 }
 ```
 
-Export response:
+### Acceptance Criteria
+
+```text
+[ ] User can choose export format
+[ ] User can select included sections
+[ ] Export request creates package
+[ ] Download link appears after successful generation
+```
+
+---
+
+## 6.20 Settings Page
+
+### Route
+
+```text
+/settings
+```
+
+### Purpose
+
+User and application preferences.
+
+### Must Show
+
+```text
+Profile details
+Change password
+Theme preference
+Notification preference
+API token section if needed
+Logout button
+```
+
+---
+
+# 7. Main User Workflows
+
+---
+
+## 7.1 Workflow: Create Project and First Artifact
+
+```text
+Login
+Open Dashboard
+Click Create Project
+Enter project name and description
+Open new project workspace
+Click Create Artifact
+Select artifact type SERVICE
+Enter title and description
+Save
+Open artifact detail page
+```
+
+Expected result:
+
+```text
+Project exists
+Artifact exists
+Artifact appears in project artifact list
+Artifact appears as node in graph
+Version history records creation
+```
+
+---
+
+## 7.2 Workflow: Link Artifacts
+
+```text
+Open Artifact Detail
+Open Relations section
+Select target artifact
+Select relation type
+Add description
+Save relation
+Open Knowledge Graph
+Verify edge appears
+```
+
+Expected result:
+
+```text
+Relation is stored
+Graph updates
+Version history records link creation
+Validation can use the relation
+```
+
+---
+
+## 7.3 Workflow: Write Documentation
+
+```text
+Open Documentation page
+Select artifact
+Write Markdown content
+Preview rendered document
+Save
+Open artifact detail
+Verify documentation is linked
+```
+
+Expected result:
+
+```text
+Markdown content is saved
+Preview works
+Artifact shows linked documentation
+Version history records change
+```
+
+---
+
+## 7.4 Workflow: Import API Spec
+
+```text
+Open API Specs page
+Upload or paste OpenAPI content
+Click Import
+Backend parses endpoints
+Frontend shows endpoint table
+User links endpoints to service artifacts
+```
+
+Expected result:
+
+```text
+API spec is saved
+Endpoints are created
+Endpoints can be linked to documentation/services
+Validation can detect undocumented endpoints
+```
+
+---
+
+## 7.5 Workflow: Visualize Knowledge Graph
+
+```text
+Open graph page
+Inspect nodes and edges
+Filter by artifact type
+Click artifact node
+Open details panel
+Create relation from selected nodes
+```
+
+Expected result:
+
+```text
+Graph represents artifact relations
+User can navigate architecture visually
+Graph updates after relation changes
+```
+
+---
+
+## 7.6 Workflow: Run Validation
+
+```text
+Open Validation page
+Click Run Validation
+Backend checks consistency rules
+Frontend displays issues
+User opens affected artifact
+User fixes missing relation/documentation
+Run validation again
+```
+
+Expected result:
+
+```text
+Issues are visible
+Issues are actionable
+Resolved issues disappear or change status
+```
+
+---
+
+## 7.7 Workflow: Export SSOT
+
+```text
+Open Export page
+Select ZIP or Markdown
+Choose included sections
+Generate export
+Download package
+```
+
+Expected result:
+
+```text
+Export contains project architecture
+Export includes artifacts, relations, docs, APIs, diagrams, validation report
+```
+
+---
+
+# 8. WebSocket Expectations
+
+The frontend must connect to the backend WebSocket server after authentication.
+
+## 8.1 Subscribe to Project
+
+When user opens a project workspace:
 
 ```json
 {
-  "success": true,
-  "data": {
-    "id": "uuid",
-    "projectId": "uuid",
-    "format": "json",
-    "status": "completed",
-    "downloadUrl": "/api/exports/uuid/download",
-    "createdAt": "2026-05-26T10:00:00.000Z"
+  "event": "project:subscribe",
+  "payload": {
+    "projectId": "project-id"
   }
 }
 ```
 
-Acceptance criteria:
+## 8.2 Events to Handle
 
 ```text
-User can configure export.
-User can trigger SSOT export.
-User can download generated package.
-Export history is visible.
+artifact:created
+artifact:updated
+artifact:deleted
+relation:created
+relation:deleted
+validation:completed
+version:created
+export:completed
 ```
 
----
-
-## 19. Search
-
-Purpose:
-
-```text
-Search across projects, artifacts, documentation, APIs, diagrams, and validation issues.
-```
-
-UI component:
-
-```text
-GlobalSearchBar
-```
-
-API:
-
-```http
-GET /api/projects/:projectId/search?q=authentication&type=artifact
-```
-
-Response:
+## 8.3 Example Event
 
 ```json
 {
-  "success": true,
-  "data": [
-    {
-      "resultType": "artifact",
-      "id": "uuid",
-      "title": "Authentication Service",
-      "description": "Handles login and JWT authentication",
-      "url": "/projects/uuid/artifacts?selected=uuid"
-    }
-  ]
-}
-```
-
-Acceptance criteria:
-
-```text
-Search works from project workspace.
-Results are grouped by type.
-Clicking a result navigates to the correct page.
-```
-
----
-
-## 20. WebSocket Events
-
-WebSocket connection:
-
-```text
-ws://backend-url/ws
-```
-
-Frontend must listen for:
-
-```text
-artifact.created
-artifact.updated
-artifact.deleted
-relation.created
-relation.deleted
-validation.completed
-version.created
-export.completed
-```
-
-Example event:
-
-```json
-{
-  "event": "artifact.updated",
-  "projectId": "uuid",
+  "event": "artifact:updated",
   "payload": {
-    "artifactId": "uuid",
-    "title": "Authentication Service"
+    "projectId": "project-id",
+    "artifactId": "artifact-id",
+    "title": "Authentication Service",
+    "updatedAt": "2026-05-26T10:00:00.000Z"
   }
 }
 ```
@@ -1338,134 +1709,208 @@ Example event:
 Frontend behavior:
 
 ```text
-If user is inside affected project, refresh related data.
-Show small notification/toast for relevant updates.
-Do not full reload the page.
+Update related cache/state
+Show small notification
+Refresh graph if relation/artifact changed
+Refresh validation page if validation changed
 ```
 
 ---
 
-## 21. Navigation Layout
+# 9. Central API Client Rules
 
-Global layout:
+Create a central API client.
+
+Suggested files:
 
 ```text
-Left sidebar:
-- Dashboard
-- Projects
-- Current Project
-  - Overview
-  - Artifacts
-  - Knowledge Graph
-  - Documentation
-  - APIs
-  - Diagrams
-  - Database
-  - Validation
-  - Versions
-  - Export
+frontend/lib/api/client.ts
+frontend/lib/api/auth-api.ts
+frontend/lib/api/project-api.ts
+frontend/lib/api/artifact-api.ts
+frontend/lib/api/relation-api.ts
+frontend/lib/api/documentation-api.ts
+frontend/lib/api/graph-api.ts
+frontend/lib/api/validation-api.ts
+frontend/lib/api/version-api.ts
+frontend/lib/api/export-api.ts
+```
 
-Top bar:
-- Current project selector
-- Global search
-- User menu
-- Theme toggle
+The API client must:
+
+```text
+Attach auth token
+Handle JSON parsing
+Handle error responses
+Expose typed methods
+Avoid duplicated fetch calls inside components
+```
+
+Example:
+
+```ts
+export async function getProjectArtifacts(
+  projectId: string,
+): Promise<ArtifactDto[]> {
+  return apiClient.get(`/api/projects/${projectId}/artifacts`)
+}
 ```
 
 ---
 
-## 22. Required Reusable Components
+# 10. Shared DTO Expectations
 
-```text
-AppShell
-Sidebar
-TopBar
-ProjectCard
-ProjectCreateDialog
-ArtifactTable
-ArtifactCreateDialog
-ArtifactDetailDrawer
-RelationEditor
-GraphViewer
-MarkdownEditor
-MarkdownPreview
-ApiSpecImporter
-EndpointTable
-DiagramEditor
-DatabaseEntityTable
-ValidationIssueTable
-VersionTimeline
-ExportPanel
-GlobalSearchBar
-LoadingState
-EmptyState
-ErrorState
-ConfirmDialog
+Frontend should use shared TypeScript types.
+
+Example:
+
+```ts
+export type ArtifactType =
+  | "DOCUMENTATION"
+  | "API_SPEC"
+  | "API_ENDPOINT"
+  | "SERVICE"
+  | "DATABASE_MODEL"
+  | "DATABASE_ENTITY"
+  | "DIAGRAM"
+  | "REQUIREMENT"
+  | "SECURITY_POLICY"
+  | "ENVIRONMENT"
+  | "EXTERNAL_SYSTEM"
+
+export interface ArtifactDto {
+  id: string
+  projectId: string
+  title: string
+  type: ArtifactType
+  status: "DRAFT" | "ACTIVE" | "DEPRECATED"
+  description?: string
+  relationCount?: number
+  validationIssueCount?: number
+  createdAt: string
+  updatedAt: string
+}
 ```
 
 ---
 
-## 23. UI Acceptance Criteria
+# 11. UI Design Expectations
 
-The frontend is considered acceptable when:
+## 11.1 Visual Style
+
+The UI should feel:
 
 ```text
-1. User can register and login.
-2. User can create and open projects.
-3. User can create, edit, and delete artifacts.
-4. User can connect artifacts with relationships.
-5. User can view the knowledge graph.
-6. User can write documentation in Markdown.
-7. User can import or create API specifications.
-8. User can create diagrams.
-9. User can view database models.
-10. User can run validation and inspect issues.
-11. User can view version history.
-12. User can export a Single Source of Truth package.
-13. Frontend displays loading, error, and empty states.
-14. Frontend consumes the backend API only through centralized API client functions.
-15. WebSocket updates are reflected without full reload.
+technical
+structured
+modern
+dashboard-oriented
+engineering-focused
+clean
+clear
+```
+
+Avoid:
+
+```text
+game-like UI
+overly decorative animations
+unclear colors
+random layouts
+```
+
+## 11.2 Recommended Visual Elements
+
+```text
+Cards for summaries
+Tables for structured lists
+Graph canvas for relationships
+Badges for status/type/severity
+Timeline for version history
+Split editor/preview for Markdown and diagrams
+Right side drawer for context details
+```
+
+## 11.3 Status Colors
+
+Use consistent semantic colors:
+
+```text
+DRAFT = neutral
+ACTIVE = positive
+DEPRECATED = warning
+ERROR/CRITICAL = destructive
+WARNING = caution
+INFO = neutral/info
 ```
 
 ---
 
-## 24. Instruction for Claude / Frontend AI
+# 12. Frontend Acceptance Checklist
 
-Use this exact instruction when giving this document to a frontend AI:
+Claude/Codex should treat this as the final checklist.
 
 ```text
-Build the Next.js frontend for the SSOT Architecture Platform using this document as the implementation contract.
-
-Do not invent backend endpoints.
-Do not access the database directly.
-Use only the API endpoints and payloads described here.
-Create reusable components.
-Use mock data only if the backend is not available yet, but keep the API client structure ready.
-Focus on clean SaaS UI, graph visualization, documentation editing, and clear engineering workflows.
-All pages must include loading, empty, and error states.
-Use TypeScript strictly.
+[ ] All listed routes exist
+[ ] Protected routes require authentication
+[ ] Sidebar navigation works
+[ ] Dashboard loads projects
+[ ] Projects can be created
+[ ] Artifacts can be created, viewed, updated, deleted
+[ ] Artifact relations can be created and removed
+[ ] Knowledge graph renders real backend data
+[ ] Markdown documentation can be edited and previewed
+[ ] API specs can be imported and viewed
+[ ] Database model page displays entities and fields
+[ ] Diagram editor displays source and preview
+[ ] Validation page can run and display validation
+[ ] Version history page displays timeline
+[ ] Export page can generate and download SSOT package
+[ ] API calls use central API client
+[ ] WebSocket updates are handled
+[ ] Loading, empty, error, and success states exist
+[ ] UI follows clean engineering workspace style
 ```
 
 ---
 
-## 25. Implementation Priority
+# 13. Claude Implementation Instruction
 
-Recommended build order:
+When implementing the frontend:
 
 ```text
-1. App layout, sidebar, topbar
-2. Auth pages
-3. Project list and project detail page
-4. Artifact CRUD
-5. Relation editor
-6. Knowledge graph page
-7. Documentation editor
-8. API module
-9. Diagram module
-10. Database module
-11. Validation page
-12. Version history
-13. Export page
-14. WebSocket integration
-15. UI polish
+1. Read this document fully.
+2. Do not invent backend behavior.
+3. Use the defined routes, endpoints, and payloads.
+4. Build reusable components.
+5. Keep API calls inside /lib/api.
+6. Keep UI components focused and small.
+7. Use placeholder data only when backend is unavailable.
+8. Mark placeholder areas clearly with TODO comments.
+9. Do not remove API contracts.
+10. Do not directly access the database.
+```
+
+---
+
+# 14. Recommended Implementation Order
+
+```text
+1. Next.js project setup
+2. Global layout and navigation
+3. API client
+4. Auth pages
+5. Dashboard
+6. Projects pages
+7. Artifacts pages
+8. Relation editor
+9. Knowledge graph
+10. Documentation editor
+11. API specs
+12. Database model page
+13. Diagrams
+14. Validation
+15. Version history
+16. Export SSOT
+17. Polish loading/error/empty states
 ```
