@@ -1,0 +1,379 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  ARCHITECT
+  DEVELOPER
+  VIEWER
+}
+
+enum ProjectRole {
+  OWNER
+  ARCHITECT
+  DEVELOPER
+  VIEWER
+}
+
+enum ArtifactType {
+  DOCUMENTATION
+  API_SPEC
+  API_ENDPOINT
+  SERVICE
+  DATABASE_MODEL
+  DATABASE_ENTITY
+  DIAGRAM
+  REQUIREMENT
+  SECURITY_POLICY
+  MODULE
+  EXTERNAL_SYSTEM
+  DEPLOYMENT
+}
+
+enum ArtifactStatus {
+  DRAFT
+  ACTIVE
+  DEPRECATED
+  ARCHIVED
+}
+
+enum RelationType {
+  DEPENDS_ON
+  DOCUMENTS
+  IMPLEMENTS
+  USES
+  EXPOSES
+  BELONGS_TO
+  SECURES
+  REPRESENTS
+  VALIDATES
+  COMMUNICATES_WITH
+  STORES_DATA_IN
+  GENERATED_FROM
+}
+
+enum ApiSpecFormat {
+  OPENAPI
+  CUSTOM
+}
+
+enum HttpMethod {
+  GET
+  POST
+  PUT
+  PATCH
+  DELETE
+  OPTIONS
+  HEAD
+}
+
+enum DiagramType {
+  MERMAID
+  UML
+  ERD
+  ARCHITECTURE_FLOW
+  SEQUENCE
+  COMPONENT
+}
+
+enum DatabaseType {
+  POSTGRESQL
+  MYSQL
+  SQLITE
+  MONGODB
+  OTHER
+}
+
+enum DatabaseEntityType {
+  TABLE
+  COLLECTION
+  VIEW
+}
+
+enum ChangeType {
+  CREATED
+  UPDATED
+  DELETED
+  LINKED
+  UNLINKED
+  IMPORTED
+  VALIDATED
+  EXPORTED
+}
+
+enum ValidationSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+enum ValidationCategory {
+  API
+  DATABASE
+  SECURITY
+  DOCUMENTATION
+  ARCHITECTURE
+  RELATIONSHIP
+  VERSIONING
+}
+
+enum ValidationIssueStatus {
+  OPEN
+  RESOLVED
+  IGNORED
+}
+
+enum ExportFormat {
+  JSON
+  MARKDOWN
+  ZIP
+}
+
+model User {
+  id               String             @id @default(uuid())
+  email            String             @unique
+  passwordHash     String
+  firstName        String
+  lastName         String
+  role             UserRole           @default(DEVELOPER)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  ownedProjects    Project[]          @relation("ProjectOwner")
+  projectMembers   ProjectMember[]
+  createdArtifacts Artifact[]         @relation("ArtifactCreator")
+  createdRelations ArtifactRelation[] @relation("RelationCreator")
+  versionChanges   VersionHistory[]   @relation("VersionChanger")
+}
+
+model Project {
+  id               String             @id @default(uuid())
+  name             String
+  description      String?
+  ownerId          String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  owner            User               @relation("ProjectOwner", fields: [ownerId], references: [id])
+  members          ProjectMember[]
+  artifacts        Artifact[]
+  relations        ArtifactRelation[]
+  documentationPages DocumentationPage[]
+  apiSpecs         ApiSpec[]
+  diagrams         Diagram[]
+  versionHistory   VersionHistory[]
+  validationIssues ValidationIssue[]
+  tags             Tag[]
+  exportPackages   ExportPackage[]
+}
+
+model ProjectMember {
+  id        String      @id @default(uuid())
+  projectId String
+  userId    String
+  role      ProjectRole
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+model Artifact {
+  id                String             @id @default(uuid())
+  projectId         String
+  title             String
+  type              ArtifactType
+  description       String?
+  status            ArtifactStatus
+  createdById       String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  project           Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy         User               @relation("ArtifactCreator", fields: [createdById], references: [id])
+  sourceRelations   ArtifactRelation[] @relation("RelationSource")
+  targetRelations   ArtifactRelation[] @relation("RelationTarget")
+  documentationPage DocumentationPage?
+  apiSpecs          ApiSpec[]
+  apiEndpoints      ApiEndpoint[]
+  diagrams          Diagram[]
+  databaseModel     DatabaseModel?
+  databaseEntity    DatabaseEntity?
+  artifactTags      ArtifactTag[]
+  validationIssues  ValidationIssue[]
+}
+
+model ArtifactRelation {
+  id               String       @id @default(uuid())
+  projectId        String
+  sourceArtifactId String
+  targetArtifactId String
+  relationType     RelationType
+  description      String?
+  createdById      String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  project          Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceArtifact   Artifact     @relation("RelationSource", fields: [sourceArtifactId], references: [id], onDelete: Cascade)
+  targetArtifact   Artifact     @relation("RelationTarget", fields: [targetArtifactId], references: [id], onDelete: Cascade)
+  createdBy        User         @relation("RelationCreator", fields: [createdById], references: [id])
+
+  @@unique([sourceArtifactId, targetArtifactId, relationType])
+}
+
+model DocumentationPage {
+  id              String   @id @default(uuid())
+  projectId       String
+  artifactId      String   @unique
+  markdownContent String
+  renderedHtml    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifact        Artifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+}
+
+model ApiSpec {
+  id            String        @id @default(uuid())
+  projectId     String
+  artifactId    String?
+  name          String
+  format        ApiSpecFormat
+  rawContent    String
+  parsedContent Json?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifact      Artifact?     @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+  endpoints     ApiEndpoint[]
+
+  @@index([projectId])
+}
+
+model ApiEndpoint {
+  id             String     @id @default(uuid())
+  apiSpecId      String
+  artifactId     String?
+  method         HttpMethod
+  path           String
+  summary        String?
+  requestSchema  Json?
+  responseSchema Json?
+  requiresAuth   Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  apiSpec        ApiSpec    @relation(fields: [apiSpecId], references: [id], onDelete: Cascade)
+  artifact       Artifact?  @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+
+  @@index([apiSpecId])
+}
+
+model Diagram {
+  id          String      @id @default(uuid())
+  projectId   String
+  artifactId  String?
+  title       String
+  diagramType DiagramType
+  sourceCode  String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifact    Artifact?   @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+}
+
+model DatabaseModel {
+  id           String           @id @default(uuid())
+  artifactId   String           @unique
+  databaseType DatabaseType
+  description  String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  artifact     Artifact         @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  entities     DatabaseEntity[]
+}
+
+model DatabaseEntity {
+  id                  String             @id @default(uuid())
+  databaseModelId     String
+  artifactId          String?            @unique
+  name                String
+  entityType          DatabaseEntityType
+  fieldsJson          Json
+  relationsJson       Json?
+  normalizationStatus String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  databaseModel       DatabaseModel      @relation(fields: [databaseModelId], references: [id], onDelete: Cascade)
+  artifact            Artifact?          @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+}
+
+model VersionHistory {
+  id          String     @id @default(uuid())
+  projectId   String
+  entityType  String
+  entityId    String
+  changeType  ChangeType
+  oldValue    Json?
+  newValue    Json?
+  changedById String
+  createdAt   DateTime   @default(now())
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  changedBy   User       @relation("VersionChanger", fields: [changedById], references: [id])
+}
+
+model ValidationIssue {
+  id         String             @id @default(uuid())
+  projectId  String
+  artifactId String?
+  severity   ValidationSeverity
+  category   ValidationCategory
+  message    String
+  status     ValidationIssueStatus @default(OPEN)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  project    Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifact   Artifact?          @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+}
+
+model Tag {
+  id           String        @id @default(uuid())
+  projectId    String
+  name         String
+  color        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifactTags ArtifactTag[]
+
+  @@unique([projectId, name])
+}
+
+model ArtifactTag {
+  id         String   @id @default(uuid())
+  artifactId String
+  tagId      String
+  createdAt  DateTime @default(now())
+  artifact   Artifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([artifactId, tagId])
+}
+
+model ExportPackage {
+  id          String       @id @default(uuid())
+  projectId   String
+  format      ExportFormat
+  sections    Json
+  content     Json
+  createdById String
+  createdAt   DateTime     @default(now())
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}

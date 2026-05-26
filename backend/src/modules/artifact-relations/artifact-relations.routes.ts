@@ -1,0 +1,1 @@
+export { artifactRelationsRouter, relationsRouter } from "../relations/relations.routes";

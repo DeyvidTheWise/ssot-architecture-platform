@@ -1,0 +1,1 @@
+export { relationsService as artifactRelationsService } from "../relations/relations.service";

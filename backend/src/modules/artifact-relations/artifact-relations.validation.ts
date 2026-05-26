@@ -1,0 +1,1 @@
+export { createRelationSchema } from "../relations/relations.validation";

@@ -1,0 +1,1 @@
+export { relationsController as artifactRelationsController } from "../relations/relations.controller";
